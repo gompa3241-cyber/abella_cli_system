@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.scc</groupId>
-    <artifactId>brgy_healthcare_appointment</artifactId>
+    <artifactId>coinward</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
