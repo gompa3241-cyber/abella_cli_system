@@ -16,7 +16,7 @@ public class Authentication {
 
     public void start() {
         System.out.println("\n================================");
-        System.out.println("          2 COINWARD              ");
+        System.out.println("           COINWARD              ");
         System.out.println("================================");
         System.out.println("1. Login");
         System.out.println("2. Register");

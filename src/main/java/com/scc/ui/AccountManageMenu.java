@@ -26,7 +26,7 @@ public class AccountManageMenu {
             System.out.println("2. View Pending User Approvals");
             System.out.println("3. Approve User Registration");
             System.out.println("4. Add New User");
-            System.out.println("5. Update User identity / Status");
+            System.out.println("5. Update User Role / Status");
             System.out.println("6. Delete User Account");
             System.out.println("7. Logout");
             System.out.print("Choose an option (1-7): ");
@@ -38,7 +38,7 @@ public class AccountManageMenu {
                 case "2" -> viewPendingUsers();
                 case "3" -> approveUser();
                 case "4" -> addNewUser();
-                case "5" -> updateUser();
+                case "5" -> updateRoleAndStatus(admin); // Updated to pass current active admin session
                 case "6" -> deleteUser();
                 case "7" -> {
                     System.out.println("Logging out from Admin Dashboard...");
@@ -80,28 +80,23 @@ public class AccountManageMenu {
             return;
         }
         displayUserTable(pending, "PENDING USERS");
-        System.out.print("Enter User ID to approve (or 0 to cancel): ");
-        try {
-            int userId = Integer.parseInt(scanner.nextLine().trim());
+        int userId = readIntInput("Enter User ID to approve (or 0 to cancel): ");
 
-            if (userId == 0) {
-                System.out.println("-> Operation canceled by the user.");
-                return;
-            }
+        if (userId == 0) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
 
-            boolean exists = pending.stream().anyMatch(u -> u.user_id() == userId);
-            if (!exists) {
-                System.out.println("-> User ID not found in pending list.");
-                return;
-            }
+        boolean exists = pending.stream().anyMatch(u -> u.user_id() == userId);
+        if (!exists) {
+            System.out.println("-> User ID not found in pending list.");
+            return;
+        }
 
-            if (userdao.updateStatus(userId, "APPROVED")) {
-                System.out.println("-> User ID " + userId + " approved successfully!");
-            } else {
-                System.out.println("-> Failed to approve user.");
-            }
-        } catch (NumberFormatException e) {
-            System.out.println("-> Invalid ID format.");
+        if (userdao.updateStatus(userId, "APPROVED")) {
+            System.out.println("-> User ID " + userId + " approved successfully!");
+        } else {
+            System.out.println("-> Failed to approve user.");
         }
     }
 
@@ -110,10 +105,18 @@ public class AccountManageMenu {
         String username = scanner.nextLine().trim();
         System.out.print("Enter password: ");
         String password = scanner.nextLine().trim();
-        System.out.print("Enter role (User/Staff/Admin): ");
-        String role = scanner.nextLine().trim();
-        System.out.print("Enter status (APPROVED/PENDING): ");
-        String status = scanner.nextLine().trim();
+
+        String role = readValidRole();
+        if (role == null) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
+
+        String status = readValidStatus();
+        if (status == null) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
 
         if (userdao.addUserByAdmin(username, password, role, status)) {
             System.out.println("-> New user added successfully!");
@@ -122,48 +125,104 @@ public class AccountManageMenu {
         }
     }
 
-    private void updateUser() {
-        viewAllUser();
-        System.out.print("Enter User ID to update: ");
-        try {
-            int userId = Integer.parseInt(scanner.nextLine().trim());
-            System.out.print("Enter new username: ");
-            String username = scanner.nextLine().trim();
-            System.out.print("Enter new password: ");
-            String password = scanner.nextLine().trim();
-            System.out.print("Enter new role: ");
-            String role = scanner.nextLine().trim();
-            System.out.print("Enter new status: ");
-            String status = scanner.nextLine().trim();
+    // New update process following tutorial logic with strict validation & active admin check
+    private void updateRoleAndStatus(user currentAdmin) {
+        displayUserTable(userdao.getAllUser(), "SELECT USER TO UPDATE");
 
-            if (userdao.updateUser(userId, username, password, role, status)) {
-                System.out.println("-> User updated successfully!");
-            } else {
-                System.out.println("-> Failed to update user.");
-            }
-        } catch (NumberFormatException e) {
-            System.out.println("-> Invalid ID format.");
+        int userId = readIntInput("Enter User ID to update (or 0 to cancel): ");
+        if (userId == 0) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
+
+        // Prevent admin from modifying their own active account session
+        if (userId == currentAdmin.user_id()) {
+            System.out.println("-> [WARNING] Modifying current active admin session is restricted!");
+            return;
+        }
+
+        String newRole = readValidRole();
+        if (newRole == null) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
+
+        String newStatus = readValidStatus();
+        if (newStatus == null) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
+
+        if (userdao.updateUser(userId, newRole, newStatus)) {
+            System.out.println("-> User updated successfully!");
+        } else {
+            System.out.println("-> Failed to update user.");
         }
     }
 
     private void deleteUser() {
         viewAllUser();
-        System.out.print("Enter User ID to delete: ");
-        try {
-            int userId = Integer.parseInt(scanner.nextLine().trim());
-            System.out.print("Are you sure you want to delete user ID " + userId + "? (y/n): ");
-            String confirm = scanner.nextLine().trim();
-            if (confirm.equalsIgnoreCase("y")) {
-                if (userdao.deleteUser(userId)) {
-                    System.out.println("-> User deleted successfully!");
-                } else {
-                    System.out.println("-> Failed to delete user.");
-                }
+        int userId = readIntInput("Enter User ID to delete (or 0 to cancel): ");
+        if (userId == 0) {
+            System.out.println("-> Operation cancelled.");
+            return;
+        }
+
+        System.out.print("Are you sure you want to delete user ID " + userId + "? (y/n): ");
+        String confirm = scanner.nextLine().trim();
+        if (confirm.equalsIgnoreCase("y")) {
+            if (userdao.deleteUser(userId)) {
+                System.out.println("-> User deleted successfully!");
             } else {
-                System.out.println("-> Deletion cancelled.");
+                System.out.println("-> Failed to delete user.");
             }
-        } catch (NumberFormatException e) {
-            System.out.println("-> Invalid ID format.");
+        } else {
+            System.out.println("-> Deletion cancelled.");
+        }
+    }
+
+    // Helper: Validates numeric ID entries safely
+    private int readIntInput(String prompt) {
+        while (true) {
+            System.out.print(prompt);
+            String input = scanner.nextLine().trim();
+            try {
+                return Integer.parseInt(input);
+            } catch (NumberFormatException e) {
+                System.out.println("-> [ERROR] Invalid numeric format. Please enter a valid number.");
+            }
+        }
+    }
+
+    // Helper: Validates proper role entries
+    private String readValidRole() {
+        while (true) {
+            System.out.print("Enter role [ADMIN / STAFF / CUSTOMER] (or 'cancel'): ");
+            String role = scanner.nextLine().trim().toUpperCase();
+
+            if (role.equals("0") || role.equalsIgnoreCase("CANCEL")) {
+                return null;
+            }
+            if (role.equals("ADMIN") || role.equals("STAFF") || role.equals("CUSTOMER")) {
+                return role;
+            }
+            System.out.println("-> [ERROR] Invalid role. Please choose between ADMIN, STAFF, or CUSTOMER.");
+        }
+    }
+
+    // Helper: Validates proper status entries
+    private String readValidStatus() {
+        while (true) {
+            System.out.print("Enter status [APPROVED / PENDING] (or 'cancel'): ");
+            String status = scanner.nextLine().trim().toUpperCase();
+
+            if (status.equals("0") || status.equalsIgnoreCase("CANCEL")) {
+                return null;
+            }
+            if (status.equals("APPROVED") || status.equals("PENDING")) {
+                return status;
+            }
+            System.out.println("-> [ERROR] Invalid status. Please enter APPROVED or PENDING.");
         }
     }
 }

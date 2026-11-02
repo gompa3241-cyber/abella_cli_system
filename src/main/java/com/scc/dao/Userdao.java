@@ -73,7 +73,6 @@ public class Userdao {
     }
 
     public user login(String username, String password) {
-        // Changed 'id' to 'user_id'
         String sql = "SELECT user_id, username, password, roles, status FROM users WHERE username = ? AND password = ?";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -90,7 +89,7 @@ public class Userdao {
                         return null;
                     }
                     return new user(
-                            rs.getInt("user_id"), // Fixed to user_id
+                            rs.getInt("user_id"),
                             rs.getString("username"),
                             rs.getString("password"),
                             rs.getString("roles"),
@@ -109,7 +108,6 @@ public class Userdao {
 
     public List<user> getAllUser() {
         List<user> usersList = new ArrayList<>();
-        // Changed 'id' to 'user_id'
         String sql = "SELECT user_id, username, password, roles, status FROM users";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -118,7 +116,7 @@ public class Userdao {
 
             while (rs.next()) {
                 usersList.add(new user(
-                        rs.getInt("user_id"), // Fixed to user_id
+                        rs.getInt("user_id"),
                         rs.getString("username"),
                         rs.getString("password"),
                         rs.getString("roles"),
@@ -134,7 +132,6 @@ public class Userdao {
 
     public List<user> getPendingUsers() {
         List<user> usersList = new ArrayList<>();
-        // Changed 'id' to 'user_id'
         String sql = "SELECT user_id, username, password, roles, status FROM users WHERE status = 'PENDING'";
 
         try (Connection conn = DatabaseConnection.getConnection();
@@ -143,7 +140,7 @@ public class Userdao {
 
             while (rs.next()) {
                 usersList.add(new user(
-                        rs.getInt("user_id"), // Fixed to user_id
+                        rs.getInt("user_id"),
                         rs.getString("username"),
                         rs.getString("password"),
                         rs.getString("roles"),
@@ -158,7 +155,6 @@ public class Userdao {
     }
 
     public boolean updateStatus(int userId, String status) {
-        // Changed 'id' to 'user_id' in WHERE clause
         String sql = "UPDATE users SET status = ? WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -171,17 +167,23 @@ public class Userdao {
         }
     }
 
-    public boolean updateUser(int userId, String username, String password, String roles, String status) {
-        // Changed 'id' to 'user_id' in WHERE clause
-        String sql = "UPDATE users SET username = ?, password = ?, roles = ?, status = ? WHERE user_id = ?";
+    // Updated updateUser method handling role and status modifications securely via PreparedStatement
+    public boolean updateUser(int userId, String roles, String status) {
+        String sql = "UPDATE users SET roles = ?, status = ? WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            pstmt.setString(2, password);
-            pstmt.setString(3, roles.toUpperCase());
-            pstmt.setString(4, status.toUpperCase());
-            pstmt.setInt(5, userId);
-            return pstmt.executeUpdate() > 0;
+            pstmt.setString(1, roles.toUpperCase());
+            pstmt.setString(2, status.toUpperCase());
+            pstmt.setInt(3, userId);
+
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated > 0) {
+                System.out.println("-> User ID " + userId + " updated successfully!");
+                return true;
+            } else {
+                System.out.println("-> User ID not found.");
+                return false;
+            }
         } catch (SQLException e) {
             System.err.println("Error updating user: " + e.getMessage());
             return false;
@@ -189,7 +191,6 @@ public class Userdao {
     }
 
     public boolean deleteUser(int userId) {
-        // Changed 'id' to 'user_id' in WHERE clause
         String sql = "DELETE FROM users WHERE user_id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
