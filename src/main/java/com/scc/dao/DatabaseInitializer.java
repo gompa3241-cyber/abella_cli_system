@@ -7,8 +7,7 @@ import java.sql.Statement;
 public class DatabaseInitializer {
 
     public static void initializer() {
-        // Query to create the 'users' table with all required columns including status
-        String createTableSQL = """
+        String createUsersTable = """
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -18,11 +17,23 @@ public class DatabaseInitializer {
             );
         """;
 
+        String createLogsTable = """
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                action_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+            );
+        """;
+
         try (Connection conn = DatabaseConnection.getConnection();
              Statement stmt = conn.createStatement()) {
 
-            stmt.execute(createTableSQL);
-            System.out.println("Database successfully initialized.");
+            stmt.execute(createUsersTable);
+            stmt.execute(createLogsTable);
+            System.out.println("Database and tables successfully initialized.");
 
         } catch (SQLException e) {
             System.err.println("Initialization error: " + e.getMessage());
